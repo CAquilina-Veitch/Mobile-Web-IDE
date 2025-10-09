@@ -1,0 +1,20 @@
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Dependencies (if you add any in the future)
+node_modules/
+
+# Environment variables (if you add any)
+.env
+.env.local

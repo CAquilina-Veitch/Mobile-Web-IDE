@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>GitHub Mobile IDE</title>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles/main.css">
+
+    <!-- Monaco Editor -->
+    <link rel="stylesheet" data-name="vs/editor/editor.main" href="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/editor/editor.main.min.css">
+</head>
+<body>
+    <!-- Login Screen -->
+    <div id="login-screen" class="screen">
+        <div class="login-container">
+            <h1>GitHub Mobile IDE</h1>
+            <p>Code on the go with your GitHub repositories</p>
+            <button id="login-btn" class="btn btn-primary">Login with GitHub</button>
+            <div id="device-flow-info" class="device-flow-info hidden">
+                <p>Enter this code at <a id="verification-url" target="_blank" href="">GitHub</a>:</p>
+                <div class="user-code" id="user-code"></div>
+                <p class="status-text">Waiting for authentication...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Repository Selection Screen -->
+    <div id="repo-screen" class="screen hidden">
+        <div class="screen-header">
+            <h2>Select Repository</h2>
+            <button id="logout-btn" class="btn btn-secondary">Logout</button>
+        </div>
+        <div class="repo-container">
+            <input type="text" id="repo-search" class="search-input" placeholder="Search repositories...">
+            <div id="repo-list" class="repo-list"></div>
+        </div>
+    </div>
+
+    <!-- Main IDE Screen -->
+    <div id="ide-screen" class="screen hidden">
+        <!-- Top Bar -->
+        <div class="top-bar">
+            <button id="menu-toggle" class="btn-icon" aria-label="Toggle file tree">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="3" y1="12" x2="21" y2="12"></line>
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <line x1="3" y1="18" x2="21" y2="18"></line>
+                </svg>
+            </button>
+
+            <div class="pinned-tabs" id="pinned-tabs"></div>
+
+            <div class="top-bar-right">
+                <select id="branch-selector" class="branch-selector">
+                    <option>Loading...</option>
+                </select>
+                <button id="new-branch-btn" class="btn-icon" title="New branch">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                </button>
+                <button id="pull-btn" class="btn-icon" title="Pull">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="8 18 12 22 16 18"></polyline>
+                        <line x1="12" y1="2" x2="12" y2="22"></line>
+                    </svg>
+                </button>
+                <button id="commit-btn" class="btn-icon" title="Commit">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <line x1="3" y1="12" x2="9" y2="12"></line>
+                        <line x1="15" y1="12" x2="21" y2="12"></line>
+                    </svg>
+                </button>
+                <button id="push-btn" class="btn-icon" title="Push">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="16 6 12 2 8 6"></polyline>
+                        <line x1="12" y1="22" x2="12" y2="2"></line>
+                    </svg>
+                </button>
+                <button id="ide-logout-btn" class="btn-icon" title="Logout">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                        <polyline points="16 17 21 12 16 7"></polyline>
+                        <line x1="21" y1="12" x2="9" y2="12"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="ide-main">
+            <!-- File Tree Drawer -->
+            <div id="file-tree-drawer" class="file-tree-drawer">
+                <div class="drawer-header">
+                    <input type="text" id="file-search" class="search-input" placeholder="Search files...">
+                </div>
+                <div id="file-tree" class="file-tree"></div>
+            </div>
+
+            <!-- Editor Area -->
+            <div class="editor-area">
+                <div class="editor-header">
+                    <div class="current-file" id="current-file">No file open</div>
+                    <div class="editor-actions">
+                        <button id="pin-btn" class="btn-text" title="Pin file">📌</button>
+                        <button id="save-btn" class="btn-text" title="Save (Ctrl+S)">Save</button>
+                        <button id="discard-btn" class="btn-text" title="Discard changes">Discard</button>
+                    </div>
+                </div>
+
+                <!-- Monaco Editor Container -->
+                <div id="editor-container"></div>
+
+                <!-- Mobile Keyboard Toolbar -->
+                <div id="keyboard-toolbar" class="keyboard-toolbar">
+                    <button class="toolbar-key" data-key="{">{</button>
+                    <button class="toolbar-key" data-key="}">}</button>
+                    <button class="toolbar-key" data-key="(">&#40;</button>
+                    <button class="toolbar-key" data-key=")">&#41;</button>
+                    <button class="toolbar-key" data-key=";">;</button>
+                    <button class="toolbar-key" data-key=":">=</button>
+                    <button class="toolbar-key" data-key='"'>"</button>
+                    <button class="toolbar-key" data-key="'">'</button>
+                    <button class="toolbar-key" data-key="<">&lt;</button>
+                    <button class="toolbar-key" data-key=">">&gt;</button>
+                    <button class="toolbar-key" data-key="/">/</button>
+                    <button class="toolbar-key" data-key="Tab">⇥</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Bar -->
+        <div class="status-bar">
+            <span id="status-text"></span>
+            <span id="rate-limit-status"></span>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <!-- Commit Modal -->
+    <div id="commit-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Commit Changes</h3>
+                <button class="modal-close" data-modal="commit-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="changed-files-list" class="changed-files-list"></div>
+                <textarea id="commit-message" class="commit-message-input" placeholder="Commit message..." rows="4"></textarea>
+            </div>
+            <div class="modal-footer">
+                <button id="cancel-commit-btn" class="btn btn-secondary">Cancel</button>
+                <button id="confirm-commit-btn" class="btn btn-primary">Commit</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Branch Modal -->
+    <div id="branch-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create New Branch</h3>
+                <button class="modal-close" data-modal="branch-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="new-branch-name" class="text-input" placeholder="Branch name...">
+                <p class="help-text">Branch will be created from: <span id="current-branch-name"></span></p>
+            </div>
+            <div class="modal-footer">
+                <button id="cancel-branch-btn" class="btn btn-secondary">Cancel</button>
+                <button id="create-branch-btn" class="btn btn-primary">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay hidden">
+        <div class="spinner"></div>
+        <p id="loading-text">Loading...</p>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Monaco Editor Loader -->
+    <script>
+        var require = { paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } };
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/editor/editor.main.nls.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/editor/editor.main.js"></script>
+
+    <!-- Octokit.js -->
+    <script src="https://cdn.jsdelivr.net/npm/@octokit/rest@20.0.2/dist/octokit-rest.min.js"></script>
+
+    <!-- App Scripts (ES6 Modules) -->
+    <script type="module" src="scripts/app.js"></script>
+</body>
+</html>
