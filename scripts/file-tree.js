@@ -18,12 +18,10 @@ export class FileTree {
      * Build tree structure from GitHub tree data
      */
     buildTree(githubTree) {
-        // Filter out Assets and Library folders
+        // Filter out Library folder only (keep Assets visible)
         const filteredTree = githubTree.tree.filter(item => {
             const path = item.path;
-            return !path.startsWith('Assets/') &&
-                   !path.startsWith('Library/') &&
-                   path !== 'Assets' &&
+            return !path.startsWith('Library/') &&
                    path !== 'Library';
         });
 
@@ -281,9 +279,7 @@ export class FileTree {
      * Check if path should be ignored
      */
     static shouldIgnorePath(path) {
-        return path.startsWith('Assets/') ||
-               path.startsWith('Library/') ||
-               path === 'Assets' ||
+        return path.startsWith('Library/') ||
                path === 'Library';
     }
 }
