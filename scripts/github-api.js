@@ -1,17 +1,40 @@
 /**
  * GitHub API Module
- * Wrapper around Octokit for GitHub API interactions
+ * Direct fetch wrapper for GitHub REST API
  */
 
 import { Storage } from './storage.js';
 
 export class GitHubAPI {
     constructor(token) {
-        this.octokit = new Octokit.Octokit({
-            auth: token
-        });
+        this.token = token;
+        this.baseUrl = 'https://api.github.com';
         this.cache = new Map();
         this.cacheDuration = 5 * 60 * 1000; // 5 minutes
+    }
+
+    /**
+     * Make authenticated GitHub API request
+     */
+    async request(endpoint, options = {}) {
+        const url = endpoint.startsWith('http') ? endpoint : `${this.baseUrl}${endpoint}`;
+
+        const response = await fetch(url, {
+            ...options,
+            headers: {
+                'Authorization': `token ${this.token}`,
+                'Accept': 'application/vnd.github.v3+json',
+                'Content-Type': 'application/json',
+                ...options.headers
+            }
+        });
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({ message: response.statusText }));
+            throw new Error(error.message || `GitHub API error: ${response.status}`);
+        }
+
+        return response.json();
     }
 
     /**
@@ -37,8 +60,7 @@ export class GitHubAPI {
      */
     async getAuthenticatedUser() {
         try {
-            const { data } = await this.octokit.rest.users.getAuthenticated();
-            return data;
+            return await this.request('/user');
         } catch (error) {
             console.error('Failed to get authenticated user:', error);
             throw error;
@@ -54,12 +76,7 @@ export class GitHubAPI {
             const cached = this._getFromCache(cacheKey);
             if (cached) return cached;
 
-            const { data } = await this.octokit.rest.repos.listForAuthenticatedUser({
-                page,
-                per_page: perPage,
-                sort: 'updated',
-                affiliation: 'owner,collaborator'
-            });
+            const data = await this.request(`/user/repos?page=${page}&per_page=${perPage}&sort=updated&affiliation=owner,collaborator`);
 
             this._setCache(cacheKey, data);
             return data;
@@ -78,10 +95,7 @@ export class GitHubAPI {
             const cached = this._getFromCache(cacheKey);
             if (cached) return cached;
 
-            const { data } = await this.octokit.rest.repos.listBranches({
-                owner,
-                repo
-            });
+            const data = await this.request(`/repos/${owner}/${repo}/branches`);
 
             this._setCache(cacheKey, data);
             return data;
@@ -96,10 +110,7 @@ export class GitHubAPI {
      */
     async getDefaultBranch(owner, repo) {
         try {
-            const { data } = await this.octokit.rest.repos.get({
-                owner,
-                repo
-            });
+            const data = await this.request(`/repos/${owner}/${repo}`);
             return data.default_branch;
         } catch (error) {
             console.error('Failed to get default branch:', error);
@@ -113,18 +124,15 @@ export class GitHubAPI {
     async createBranch(owner, repo, newBranch, fromBranch) {
         try {
             // Get the SHA of the from branch
-            const { data: refData } = await this.octokit.rest.git.getRef({
-                owner,
-                repo,
-                ref: `heads/${fromBranch}`
-            });
+            const refData = await this.request(`/repos/${owner}/${repo}/git/ref/heads/${fromBranch}`);
 
             // Create new branch
-            const { data } = await this.octokit.rest.git.createRef({
-                owner,
-                repo,
-                ref: `refs/heads/${newBranch}`,
-                sha: refData.object.sha
+            const data = await this.request(`/repos/${owner}/${repo}/git/refs`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    ref: `refs/heads/${newBranch}`,
+                    sha: refData.object.sha
+                })
             });
 
             // Clear branches cache
@@ -148,19 +156,10 @@ export class GitHubAPI {
             if (cached) return cached;
 
             // Get branch reference
-            const { data: refData } = await this.octokit.rest.git.getRef({
-                owner,
-                repo,
-                ref: `heads/${branch}`
-            });
+            const refData = await this.request(`/repos/${owner}/${repo}/git/ref/heads/${branch}`);
 
             // Get tree
-            const { data } = await this.octokit.rest.git.getTree({
-                owner,
-                repo,
-                tree_sha: refData.object.sha,
-                recursive: recursive ? 1 : 0
-            });
+            const data = await this.request(`/repos/${owner}/${repo}/git/trees/${refData.object.sha}?recursive=${recursive ? 1 : 0}`);
 
             this._setCache(cacheKey, data);
             return data;
@@ -175,12 +174,7 @@ export class GitHubAPI {
      */
     async getFileContent(owner, repo, path, branch = 'main') {
         try {
-            const { data } = await this.octokit.rest.repos.getContent({
-                owner,
-                repo,
-                path,
-                ref: branch
-            });
+            const data = await this.request(`/repos/${owner}/${repo}/contents/${path}?ref=${branch}`);
 
             // Decode base64 content
             if (data.content) {
@@ -199,14 +193,14 @@ export class GitHubAPI {
      */
     async updateFile(owner, repo, path, content, message, branch, sha) {
         try {
-            const { data } = await this.octokit.rest.repos.createOrUpdateFileContents({
-                owner,
-                repo,
-                path,
-                message,
-                content: btoa(unescape(encodeURIComponent(content))), // Encode to base64
-                branch,
-                sha // Required for updates
+            const data = await this.request(`/repos/${owner}/${repo}/contents/${path}`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    message,
+                    content: btoa(unescape(encodeURIComponent(content))),
+                    branch,
+                    sha
+                })
             });
 
             // Clear tree cache
@@ -226,29 +220,22 @@ export class GitHubAPI {
     async commitMultipleFiles(owner, repo, branch, files, message) {
         try {
             // Get current commit SHA
-            const { data: refData } = await this.octokit.rest.git.getRef({
-                owner,
-                repo,
-                ref: `heads/${branch}`
-            });
+            const refData = await this.request(`/repos/${owner}/${repo}/git/ref/heads/${branch}`);
             const currentCommitSha = refData.object.sha;
 
             // Get current commit tree
-            const { data: commitData } = await this.octokit.rest.git.getCommit({
-                owner,
-                repo,
-                commit_sha: currentCommitSha
-            });
+            const commitData = await this.request(`/repos/${owner}/${repo}/git/commits/${currentCommitSha}`);
             const currentTreeSha = commitData.tree.sha;
 
             // Create blobs for each file
             const blobs = await Promise.all(
                 files.map(async (file) => {
-                    const { data: blob } = await this.octokit.rest.git.createBlob({
-                        owner,
-                        repo,
-                        content: btoa(unescape(encodeURIComponent(file.content))),
-                        encoding: 'base64'
+                    const blob = await this.request(`/repos/${owner}/${repo}/git/blobs`, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            content: btoa(unescape(encodeURIComponent(file.content))),
+                            encoding: 'base64'
+                        })
                     });
                     return {
                         path: file.path,
@@ -260,28 +247,30 @@ export class GitHubAPI {
             );
 
             // Create new tree
-            const { data: newTree } = await this.octokit.rest.git.createTree({
-                owner,
-                repo,
-                base_tree: currentTreeSha,
-                tree: blobs
+            const newTree = await this.request(`/repos/${owner}/${repo}/git/trees`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    base_tree: currentTreeSha,
+                    tree: blobs
+                })
             });
 
             // Create new commit
-            const { data: newCommit } = await this.octokit.rest.git.createCommit({
-                owner,
-                repo,
-                message,
-                tree: newTree.sha,
-                parents: [currentCommitSha]
+            const newCommit = await this.request(`/repos/${owner}/${repo}/git/commits`, {
+                method: 'POST',
+                body: JSON.stringify({
+                    message,
+                    tree: newTree.sha,
+                    parents: [currentCommitSha]
+                })
             });
 
             // Update reference
-            await this.octokit.rest.git.updateRef({
-                owner,
-                repo,
-                ref: `heads/${branch}`,
-                sha: newCommit.sha
+            await this.request(`/repos/${owner}/${repo}/git/refs/heads/${branch}`, {
+                method: 'PATCH',
+                body: JSON.stringify({
+                    sha: newCommit.sha
+                })
             });
 
             // Clear cache
@@ -300,12 +289,7 @@ export class GitHubAPI {
      */
     async compareCommits(owner, repo, base, head) {
         try {
-            const { data } = await this.octokit.rest.repos.compareCommits({
-                owner,
-                repo,
-                base,
-                head
-            });
+            const data = await this.request(`/repos/${owner}/${repo}/compare/${base}...${head}`);
             return {
                 ahead: data.ahead_by,
                 behind: data.behind_by,
@@ -322,7 +306,7 @@ export class GitHubAPI {
      */
     async getRateLimit() {
         try {
-            const { data } = await this.octokit.rest.rateLimit.get();
+            const data = await this.request('/rate_limit');
             return {
                 limit: data.rate.limit,
                 remaining: data.rate.remaining,

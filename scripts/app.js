@@ -903,19 +903,11 @@ class App {
     }
 }
 
-// Wait for both DOM and Octokit to be ready
-function initializeApp() {
-    if (typeof Octokit === 'undefined') {
-        // Octokit not loaded yet, wait a bit
-        setTimeout(initializeApp, 100);
-        return;
-    }
-    window.app = new App();
-}
-
 // Initialize app when DOM is ready
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeApp);
+    document.addEventListener('DOMContentLoaded', () => {
+        window.app = new App();
+    });
 } else {
-    initializeApp();
+    window.app = new App();
 }
