@@ -19,12 +19,25 @@
         <div class="login-container">
             <h1>GitHub Mobile IDE</h1>
             <p>Code on the go with your GitHub repositories</p>
-            <button id="login-btn" class="btn btn-primary">Login with GitHub</button>
-            <div id="device-flow-info" class="device-flow-info hidden">
-                <p>Enter this code at <a id="verification-url" target="_blank" href="">GitHub</a>:</p>
-                <div class="user-code" id="user-code"></div>
-                <p class="status-text">Waiting for authentication...</p>
+
+            <div class="token-instructions">
+                <p><strong>To get started, you'll need a GitHub Personal Access Token:</strong></p>
+                <ol>
+                    <li>Go to <a href="https://github.com/settings/tokens/new" target="_blank">GitHub Settings → Personal access tokens</a></li>
+                    <li>Click "Generate new token (classic)"</li>
+                    <li>Give it a name (e.g., "Mobile IDE")</li>
+                    <li>Select scopes: <code>repo</code> and <code>user</code></li>
+                    <li>Click "Generate token" and copy it</li>
+                    <li>Paste it below:</li>
+                </ol>
             </div>
+
+            <input type="password" id="token-input" class="text-input" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" />
+            <button id="login-btn" class="btn btn-primary">Login</button>
+
+            <p class="help-text" style="margin-top: 1rem;">
+                <small>Your token is stored locally in your browser and never sent anywhere except GitHub.</small>
+            </p>
         </div>
     </div>
 

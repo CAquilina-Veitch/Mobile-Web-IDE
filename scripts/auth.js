@@ -1,21 +1,13 @@
 /**
  * Authentication Module
- * Handles GitHub OAuth Device Flow authentication
+ * Handles GitHub Personal Access Token (PAT) authentication
  */
 
 import { Storage } from './storage.js';
 
 export class Auth {
     constructor() {
-        // GitHub OAuth App credentials
-        // NOTE: For production use, you'll need to create a GitHub OAuth App
-        // and replace this with your actual client ID
-        // Get one at: https://github.com/settings/developers
-        this.clientId = 'Ov23liXZYxhsAvLe3CLn'; // Your GitHub OAuth App Client ID
-        this.deviceCodeEndpoint = 'https://github.com/login/device/code';
-        this.accessTokenEndpoint = 'https://github.com/login/oauth/access_token';
-        this.pollInterval = 5000; // 5 seconds
-        this.pollTimeout = null;
+        // No OAuth configuration needed for PAT authentication
     }
 
     /**
@@ -34,129 +26,23 @@ export class Auth {
     }
 
     /**
-     * Initiate Device Flow authentication
+     * Login with Personal Access Token
      */
-    async initiateDeviceFlow() {
+    async login(token) {
         try {
-            const response = await fetch(this.deviceCodeEndpoint, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify({
-                    client_id: this.clientId,
-                    scope: 'repo user'
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to initiate device flow');
+            if (!token || token.trim() === '') {
+                throw new Error('Please enter a valid token');
             }
 
-            const data = await response.json();
-            return {
-                deviceCode: data.device_code,
-                userCode: data.user_code,
-                verificationUri: data.verification_uri,
-                expiresIn: data.expires_in,
-                interval: data.interval
-            };
-        } catch (error) {
-            console.error('Device flow initiation failed:', error);
-            throw error;
-        }
-    }
+            // Verify token by making a test API call
+            const isValid = await this.verifyToken(token);
 
-    /**
-     * Poll for access token
-     */
-    async pollForToken(deviceCode, interval = 5) {
-        return new Promise((resolve, reject) => {
-            const poll = async () => {
-                try {
-                    const response = await fetch(this.accessTokenEndpoint, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            client_id: this.clientId,
-                            device_code: deviceCode,
-                            grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
-                        })
-                    });
-
-                    const data = await response.json();
-
-                    if (data.access_token) {
-                        // Success! We got the token
-                        clearTimeout(this.pollTimeout);
-                        Storage.setAuthToken(data.access_token);
-                        resolve(data.access_token);
-                    } else if (data.error === 'authorization_pending') {
-                        // User hasn't authorized yet, keep polling
-                        this.pollTimeout = setTimeout(poll, interval * 1000);
-                    } else if (data.error === 'slow_down') {
-                        // We're polling too fast, slow down
-                        this.pollTimeout = setTimeout(poll, (interval + 5) * 1000);
-                    } else if (data.error === 'expired_token') {
-                        // Token expired, user took too long
-                        clearTimeout(this.pollTimeout);
-                        reject(new Error('Device code expired. Please try again.'));
-                    } else if (data.error === 'access_denied') {
-                        // User declined the authorization
-                        clearTimeout(this.pollTimeout);
-                        reject(new Error('Authorization denied by user.'));
-                    } else {
-                        // Unknown error
-                        clearTimeout(this.pollTimeout);
-                        reject(new Error(data.error_description || 'Unknown error occurred.'));
-                    }
-                } catch (error) {
-                    clearTimeout(this.pollTimeout);
-                    reject(error);
-                }
-            };
-
-            // Start polling
-            poll();
-        });
-    }
-
-    /**
-     * Cancel ongoing polling
-     */
-    cancelPolling() {
-        if (this.pollTimeout) {
-            clearTimeout(this.pollTimeout);
-            this.pollTimeout = null;
-        }
-    }
-
-    /**
-     * Complete login flow
-     */
-    async login(onDeviceCode) {
-        try {
-            // Initiate device flow
-            const deviceFlowData = await this.initiateDeviceFlow();
-
-            // Notify callback with device code info
-            if (onDeviceCode) {
-                onDeviceCode({
-                    userCode: deviceFlowData.userCode,
-                    verificationUri: deviceFlowData.verificationUri,
-                    expiresIn: deviceFlowData.expiresIn
-                });
+            if (!isValid) {
+                throw new Error('Invalid token. Please check your Personal Access Token.');
             }
 
-            // Poll for token
-            const token = await this.pollForToken(
-                deviceFlowData.deviceCode,
-                deviceFlowData.interval
-            );
+            // Store the token
+            Storage.setAuthToken(token);
 
             return token;
         } catch (error) {
@@ -169,7 +55,6 @@ export class Auth {
      * Logout
      */
     logout() {
-        this.cancelPolling();
         Storage.clearAll();
     }
 

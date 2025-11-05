@@ -35,9 +35,7 @@ class App {
 
             // Login
             loginBtn: document.getElementById('login-btn'),
-            deviceFlowInfo: document.getElementById('device-flow-info'),
-            userCode: document.getElementById('user-code'),
-            verificationUrl: document.getElementById('verification-url'),
+            tokenInput: document.getElementById('token-input'),
 
             // Repo selection
             repoSearch: document.getElementById('repo-search'),
@@ -106,6 +104,11 @@ class App {
     setupEventListeners() {
         // Login
         this.elements.loginBtn.addEventListener('click', () => this.handleLogin());
+        this.elements.tokenInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                this.handleLogin();
+            }
+        });
 
         // Repo selection
         this.elements.repoSearch.addEventListener('input', (e) => this.filterRepos(e.target.value));
@@ -174,20 +177,17 @@ class App {
         this.elements.loginBtn.disabled = true;
 
         try {
-            await this.auth.login((deviceCodeInfo) => {
-                // Show device code
-                this.elements.deviceFlowInfo.classList.remove('hidden');
-                this.elements.userCode.textContent = deviceCodeInfo.userCode;
-                this.elements.verificationUrl.href = deviceCodeInfo.verificationUri;
-                this.elements.verificationUrl.textContent = deviceCodeInfo.verificationUri;
-            });
+            // Get token from input
+            const token = this.elements.tokenInput.value.trim();
+
+            // Login with token
+            await this.auth.login(token);
 
             // Login successful
             await this.handleAuthenticatedUser();
         } catch (error) {
             this.showToast('Login failed: ' + error.message, 'error');
             this.elements.loginBtn.disabled = false;
-            this.elements.deviceFlowInfo.classList.add('hidden');
         }
     }
 
