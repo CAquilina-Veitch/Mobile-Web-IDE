@@ -5,7 +5,9 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Read(//mnt/e/Mobile-Web-IDE/**)",
-      "Bash(git config:*)"
+      "Bash(git config:*)",
+      "Bash(curl -s -X POST https://github.com/login/device/code -H \"Content-Type: application/json\" -H \"Accept: application/json\" -d '{\"\"\"\"client_id\"\"\"\":\"\"\"\"Ov23liPCN3KvBJnJ5rhf\"\"\"\",\"\"\"\"scope\"\"\"\":\"\"\"\"repo user\"\"\"\"}')",
+      "Bash(curl -s -X POST https://github.com/login/device/code -H \"Content-Type: application/json\" -H \"Accept: application/json\" -d '{\"\"client_id\"\":\"\"Ov23liXZYxhsAvLe3CLn\"\",\"\"scope\"\":\"\"repo user\"\"}')"
     ],
     "deny": [],
     "ask": []

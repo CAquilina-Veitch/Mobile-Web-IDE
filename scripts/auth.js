@@ -11,7 +11,7 @@ export class Auth {
         // NOTE: For production use, you'll need to create a GitHub OAuth App
         // and replace this with your actual client ID
         // Get one at: https://github.com/settings/developers
-        this.clientId = 'Ov23liPCN3KvBJnJ5rhf'; // Replace with your GitHub OAuth App Client ID
+        this.clientId = 'Ov23liXZYxhsAvLe3CLn'; // Your GitHub OAuth App Client ID
         this.deviceCodeEndpoint = 'https://github.com/login/device/code';
         this.accessTokenEndpoint = 'https://github.com/login/oauth/access_token';
         this.pollInterval = 5000; // 5 seconds
