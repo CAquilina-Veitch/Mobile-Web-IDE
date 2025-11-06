@@ -3,26 +3,51 @@
  * Manages the file tree UI with filtering and navigation
  */
 
+import { Storage } from './storage.js';
+
 export class FileTree {
-    constructor(containerElement, onFileSelect) {
+    constructor(containerElement, onFileSelect, onContextMenu) {
         this.container = containerElement;
         this.onFileSelect = onFileSelect;
+        this.onContextMenu = onContextMenu;
         this.treeData = [];
         this.flatFileList = [];
         this.filterQuery = '';
         this.selectedPath = null;
         this.expandedFolders = new Set();
+        this.owner = null;
+        this.repo = null;
+    }
+
+    /**
+     * Set repository info
+     */
+    setRepo(owner, repo) {
+        this.owner = owner;
+        this.repo = repo;
     }
 
     /**
      * Build tree structure from GitHub tree data
      */
     buildTree(githubTree) {
-        // Filter out Library folder only (keep Assets visible)
+        // Filter out Library folder and hidden paths
         const filteredTree = githubTree.tree.filter(item => {
             const path = item.path;
-            return !path.startsWith('Library/') &&
-                   path !== 'Library';
+
+            // Filter out Library folder
+            if (path.startsWith('Library/') || path === 'Library') {
+                return false;
+            }
+
+            // Filter out hidden paths
+            if (this.owner && this.repo) {
+                if (Storage.isPathHidden(this.owner, this.repo, path)) {
+                    return false;
+                }
+            }
+
+            return true;
         });
 
         // Build hierarchical structure
@@ -177,10 +202,18 @@ export class FileTree {
         item.appendChild(icon);
         item.appendChild(nameSpan);
 
-        // Event listener
+        // Event listeners
         item.addEventListener('click', (e) => {
             e.stopPropagation();
             this.handleItemClick(path, type);
+        });
+
+        item.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (this.onContextMenu) {
+                this.onContextMenu(e.clientX, e.clientY, path);
+            }
         });
 
         return item;

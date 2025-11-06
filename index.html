@@ -112,6 +112,12 @@
             <div id="file-tree-drawer" class="file-tree-drawer">
                 <div class="drawer-header">
                     <input type="text" id="file-search" class="search-input" placeholder="Search files...">
+                    <button id="new-file-btn" class="btn-icon" title="New file">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                    </button>
                 </div>
                 <div id="file-tree" class="file-tree"></div>
             </div>
@@ -188,6 +194,47 @@
             <div class="modal-footer">
                 <button id="cancel-branch-btn" class="btn btn-secondary">Cancel</button>
                 <button id="create-branch-btn" class="btn btn-primary">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- New File Modal -->
+    <div id="new-file-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Create New File</h3>
+                <button class="modal-close" data-modal="new-file-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <input type="text" id="new-file-path" class="text-input" placeholder="path/to/file.cs">
+                <p class="help-text">Enter the full path including filename and extension</p>
+            </div>
+            <div class="modal-footer">
+                <button id="cancel-new-file-btn" class="btn btn-secondary">Cancel</button>
+                <button id="create-file-btn" class="btn btn-primary">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Context Menu -->
+    <div id="context-menu" class="context-menu hidden">
+        <div class="context-menu-item" id="context-hide">Hide this item</div>
+        <div class="context-menu-item" id="context-manage-hidden">Manage hidden items...</div>
+    </div>
+
+    <!-- Manage Hidden Items Modal -->
+    <div id="hidden-items-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Hidden Files & Folders</h3>
+                <button class="modal-close" data-modal="hidden-items-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="hidden-items-list" class="changed-files-list"></div>
+                <p class="help-text" style="margin-top: 1rem;">Click an item to unhide it</p>
+            </div>
+            <div class="modal-footer">
+                <button id="close-hidden-items-btn" class="btn btn-primary">Close</button>
             </div>
         </div>
     </div>

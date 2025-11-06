@@ -47,6 +47,7 @@ class App {
             fileTreeDrawer: document.getElementById('file-tree-drawer'),
             fileSearch: document.getElementById('file-search'),
             fileTreeContainer: document.getElementById('file-tree'),
+            newFileBtn: document.getElementById('new-file-btn'),
             branchSelector: document.getElementById('branch-selector'),
             newBranchBtn: document.getElementById('new-branch-btn'),
             currentFileLabel: document.getElementById('current-file'),
@@ -71,6 +72,16 @@ class App {
             currentBranchName: document.getElementById('current-branch-name'),
             createBranchBtn: document.getElementById('create-branch-btn'),
             cancelBranchBtn: document.getElementById('cancel-branch-btn'),
+            newFileModal: document.getElementById('new-file-modal'),
+            newFilePath: document.getElementById('new-file-path'),
+            createFileBtn: document.getElementById('create-file-btn'),
+            cancelNewFileBtn: document.getElementById('cancel-new-file-btn'),
+            contextMenu: document.getElementById('context-menu'),
+            contextHide: document.getElementById('context-hide'),
+            contextManageHidden: document.getElementById('context-manage-hidden'),
+            hiddenItemsModal: document.getElementById('hidden-items-modal'),
+            hiddenItemsList: document.getElementById('hidden-items-list'),
+            closeHiddenItemsBtn: document.getElementById('close-hidden-items-btn'),
 
             // Loading
             loadingOverlay: document.getElementById('loading-overlay'),
@@ -117,6 +128,7 @@ class App {
         // IDE
         this.elements.menuToggle.addEventListener('click', () => this.toggleFileTreeDrawer());
         this.elements.fileSearch.addEventListener('input', (e) => this.filterFiles(e.target.value));
+        this.elements.newFileBtn.addEventListener('click', () => this.showNewFileModal());
         this.elements.branchSelector.addEventListener('change', (e) => this.switchBranch(e.target.value));
         this.elements.newBranchBtn.addEventListener('click', () => this.showNewBranchModal());
         this.elements.pinBtn.addEventListener('click', () => this.togglePinCurrentFile());
@@ -134,6 +146,20 @@ class App {
         // Branch modal
         this.elements.createBranchBtn.addEventListener('click', () => this.handleCreateBranch());
         this.elements.cancelBranchBtn.addEventListener('click', () => this.hideModal('branch-modal'));
+
+        // New file modal
+        this.elements.createFileBtn.addEventListener('click', () => this.handleCreateFile());
+        this.elements.cancelNewFileBtn.addEventListener('click', () => this.hideModal('new-file-modal'));
+
+        // Context menu
+        this.elements.contextHide.addEventListener('click', () => this.handleHideItem());
+        this.elements.contextManageHidden.addEventListener('click', () => this.showHiddenItemsModal());
+
+        // Hidden items modal
+        this.elements.closeHiddenItemsBtn.addEventListener('click', () => this.hideModal('hidden-items-modal'));
+
+        // Hide context menu when clicking outside
+        document.addEventListener('click', () => this.hideContextMenu());
 
         // Modal close buttons
         document.querySelectorAll('.modal-close').forEach(btn => {
@@ -355,10 +381,12 @@ class App {
             if (!this.fileTree) {
                 this.fileTree = new FileTree(
                     this.elements.fileTreeContainer,
-                    (filePath) => this.handleFileSelect(filePath)
+                    (filePath) => this.handleFileSelect(filePath),
+                    (x, y, path) => this.showContextMenu(x, y, path)
                 );
             }
 
+            this.fileTree.setRepo(this.currentRepo.owner, this.currentRepo.repo);
             this.fileTree.buildTree(tree);
             this.fileTree.render();
         } catch (error) {
@@ -808,6 +836,124 @@ class App {
             this.elements.rateLimitStatus.textContent =
                 `API: ${rateLimit.remaining}/${rateLimit.limit}`;
         }
+    }
+
+    /**
+     * Show new file modal
+     */
+    showNewFileModal() {
+        this.elements.newFilePath.value = '';
+        this.showModal('new-file-modal');
+    }
+
+    /**
+     * Handle create file
+     */
+    async handleCreateFile() {
+        const filePath = this.elements.newFilePath.value.trim();
+
+        if (!filePath) {
+            this.showToast('Please enter a file path', 'error');
+            return;
+        }
+
+        this.showLoading('Creating file...');
+        this.hideModal('new-file-modal');
+
+        try {
+            await this.githubAPI.createNewFile(
+                this.currentRepo.owner,
+                this.currentRepo.repo,
+                filePath,
+                '',
+                `Create ${filePath}`,
+                this.currentBranch
+            );
+
+            // Reload tree
+            await this.loadFileTree();
+
+            // Open the new file
+            await this.handleFileSelect(filePath);
+
+            this.showToast(`Created ${filePath}`, 'success');
+        } catch (error) {
+            this.showToast('Failed to create file: ' + error.message, 'error');
+        } finally {
+            this.hideLoading();
+        }
+    }
+
+    /**
+     * Show context menu for file tree item
+     */
+    showContextMenu(x, y, path) {
+        this.contextMenuPath = path;
+        this.elements.contextMenu.style.left = `${x}px`;
+        this.elements.contextMenu.style.top = `${y}px`;
+        this.elements.contextMenu.classList.remove('hidden');
+    }
+
+    /**
+     * Hide context menu
+     */
+    hideContextMenu() {
+        this.elements.contextMenu.classList.add('hidden');
+    }
+
+    /**
+     * Handle hide item
+     */
+    handleHideItem() {
+        if (!this.contextMenuPath) return;
+
+        Storage.addHiddenPath(
+            this.currentRepo.owner,
+            this.currentRepo.repo,
+            this.contextMenuPath
+        );
+
+        this.hideContextMenu();
+        this.fileTree.render();
+        this.showToast('Item hidden', 'info');
+    }
+
+    /**
+     * Show hidden items modal
+     */
+    showHiddenItemsModal() {
+        this.hideContextMenu();
+
+        const hiddenPaths = Storage.getHiddenPaths(
+            this.currentRepo.owner,
+            this.currentRepo.repo
+        );
+
+        this.elements.hiddenItemsList.innerHTML = '';
+
+        if (hiddenPaths.length === 0) {
+            this.elements.hiddenItemsList.innerHTML = '<div class="changed-file-item" style="opacity: 0.5;">No hidden items</div>';
+        } else {
+            hiddenPaths.forEach(path => {
+                const item = document.createElement('div');
+                item.className = 'changed-file-item';
+                item.style.cursor = 'pointer';
+                item.textContent = `📁 ${path}`;
+                item.addEventListener('click', () => {
+                    Storage.removeHiddenPath(
+                        this.currentRepo.owner,
+                        this.currentRepo.repo,
+                        path
+                    );
+                    this.showHiddenItemsModal();
+                    this.fileTree.render();
+                    this.showToast('Item unhidden', 'info');
+                });
+                this.elements.hiddenItemsList.appendChild(item);
+            });
+        }
+
+        this.showModal('hidden-items-modal');
     }
 
     /**

@@ -9,7 +9,8 @@ const STORAGE_KEYS = {
     PINNED_FILES: 'github_ide_pinned_files',
     UNSAVED_CHANGES: 'github_ide_unsaved_changes',
     LAST_BRANCH: 'github_ide_last_branch',
-    USER_INFO: 'github_ide_user_info'
+    USER_INFO: 'github_ide_user_info',
+    HIDDEN_PATHS: 'github_ide_hidden_paths'
 };
 
 export class Storage {
@@ -317,6 +318,78 @@ export class Storage {
             console.error('Failed to get storage usage:', e);
             return 0;
         }
+    }
+
+    /**
+     * Get hidden paths for a repository
+     */
+    static getHiddenPaths(owner, repo) {
+        try {
+            const allHidden = localStorage.getItem(STORAGE_KEYS.HIDDEN_PATHS);
+            const hiddenData = allHidden ? JSON.parse(allHidden) : {};
+            const repoKey = `${owner}/${repo}`;
+            return hiddenData[repoKey] || [];
+        } catch (e) {
+            console.error('Failed to get hidden paths:', e);
+            return [];
+        }
+    }
+
+    /**
+     * Add a hidden path
+     */
+    static addHiddenPath(owner, repo, path) {
+        try {
+            const allHidden = localStorage.getItem(STORAGE_KEYS.HIDDEN_PATHS);
+            const hiddenData = allHidden ? JSON.parse(allHidden) : {};
+            const repoKey = `${owner}/${repo}`;
+
+            if (!hiddenData[repoKey]) {
+                hiddenData[repoKey] = [];
+            }
+
+            if (!hiddenData[repoKey].includes(path)) {
+                hiddenData[repoKey].push(path);
+                localStorage.setItem(STORAGE_KEYS.HIDDEN_PATHS, JSON.stringify(hiddenData));
+            }
+
+            return true;
+        } catch (e) {
+            console.error('Failed to add hidden path:', e);
+            return false;
+        }
+    }
+
+    /**
+     * Remove a hidden path
+     */
+    static removeHiddenPath(owner, repo, path) {
+        try {
+            const allHidden = localStorage.getItem(STORAGE_KEYS.HIDDEN_PATHS);
+            const hiddenData = allHidden ? JSON.parse(allHidden) : {};
+            const repoKey = `${owner}/${repo}`;
+
+            if (hiddenData[repoKey]) {
+                hiddenData[repoKey] = hiddenData[repoKey].filter(p => p !== path);
+                localStorage.setItem(STORAGE_KEYS.HIDDEN_PATHS, JSON.stringify(hiddenData));
+            }
+
+            return true;
+        } catch (e) {
+            console.error('Failed to remove hidden path:', e);
+            return false;
+        }
+    }
+
+    /**
+     * Check if a path is hidden
+     */
+    static isPathHidden(owner, repo, path) {
+        const hidden = this.getHiddenPaths(owner, repo);
+        return hidden.some(hiddenPath => {
+            // Check if path starts with hidden path (for folders)
+            return path === hiddenPath || path.startsWith(hiddenPath + '/');
+        });
     }
 }
 

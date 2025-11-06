@@ -215,6 +215,31 @@ export class GitHubAPI {
     }
 
     /**
+     * Create a new file
+     */
+    async createNewFile(owner, repo, path, content, message, branch) {
+        try {
+            const data = await this.request(`/repos/${owner}/${repo}/contents/${path}`, {
+                method: 'PUT',
+                body: JSON.stringify({
+                    message,
+                    content: btoa(unescape(encodeURIComponent(content))),
+                    branch
+                })
+            });
+
+            // Clear tree cache
+            const cacheKey = `tree_${owner}_${repo}_${branch}`;
+            this.cache.delete(cacheKey);
+
+            return data;
+        } catch (error) {
+            console.error('Failed to create new file:', error);
+            throw error;
+        }
+    }
+
+    /**
      * Create or update multiple files in a single commit
      */
     async commitMultipleFiles(owner, repo, branch, files, message) {
